@@ -2,7 +2,6 @@
 
 const path = require('path'),
     fs = require('fs'),
-  //  exec = require('child_process').exec,
     os = require('os'),
     moment = require('moment'),
     AWS = require('aws-sdk'),
@@ -52,7 +51,6 @@ function ValidateConfig(config) {
 
         // Replace Connection URI with parsed output from mongodb-uri
         config.mongodb = mongodb;
-        console.log(config.mongodb);
         return true;
     }
     return false;
@@ -97,81 +95,62 @@ function BackupMongoDatabase(config) {
             port = config.mongodb.hosts[0].port || null,
             ssl = config.mongodb.ssl || null,
             authenticationDatabase = config.mongodb.authenticationDatabase || null,
-            quiet = config.quiet || true;
+            quiet = config.quiet || false;
 
 
         let DB_BACKUP_NAME = `${database}_${currentTime(timezoneOffset)}.gz`;
 
-        // // Default command, does not considers username or password
-        // let command = `mongodump -h ${host} --port=${port} -d ${database} --gzip --archive=${BACKUP_PATH(DB_BACKUP_NAME)}`;
-        //
-        // // When Username and password is provided
-        // if (username && password) {
-        //     command = `mongodump -h ${host} --port=${port} -d ${database} -p '${password}' -u ${username} --gzip --archive=${BACKUP_PATH(DB_BACKUP_NAME)}`;
-        //
-        // }
-        // // When Username is provided
-        // if (username && !password) {
-        //     command = `mongodump -h ${host} --port=${port} -d ${database} -u ${username} --gzip --archive=${BACKUP_PATH(DB_BACKUP_NAME)}`;
-        // }
-        //
-        // if (ssl) command += ` --ssl`;
-        // if (quiet) command += ` --quiet`;
-        // if (authenticationDatabase) command += ` --authenticationDatabase=${authenticationDatabase}`;
-        let args=[`-h ${host}`,
+        let args=[
+            `--host=${host}`,
             `--port=${port}`,
-            `-d ${database}`,
+            `--db=${database}`,
             `--gzip`,
-            `--archive=${BACKUP_PATH(DB_BACKUP_NAME)}`];
-        if (username && password) args.push(`-p '${password}'`).push(`-u ${username}`);
+            `--archive="${BACKUP_PATH(DB_BACKUP_NAME)}"`];
+        if (username && password) args.push(`-p "${password}"`).push(`-u ${username}`);
         if (username && !password) args.push(`-u ${username}`);
         if (ssl) args.push(`--ssl`);
         if (quiet) args.push(`--quiet`);
         if (authenticationDatabase) args.push(`--authenticationDatabase=${authenticationDatabase}`);
 
-        const mongoDumpProcess = spawn('mongodump', args);
+        try {
 
-        mongoDumpProcess.stdout.on('data', (data) => {
-            console.log(`stdout: ${data}`);
-        });
+            const mongoDumpProcess = spawn('mongodump', args);
 
-        mongoDumpProcess.stderr.on('data', (data) => {
-            console.log(`stderr: ${data}`);
-        });
 
-        mongoDumpProcess.on('close', (code) => {
-            if (code == 0) {
-                resolve({
-                    error: 0,
-                    message: "Successfully Created Backup",
-                    backupName: DB_BACKUP_NAME
-                });
-            } else {
-                console.error(`child process exited with code ${code}`);
+            mongoDumpProcess.on('error', (err) => {
+                reject(err);
+            });
+
+            mongoDumpProcess.stdout.on('data', (data) => {
+                console.log(`stdout: ${data}`);
+            });
+
+            mongoDumpProcess.stderr.on('data', (data) => {
+                console.log(`stderr: ${data}`);
+            });
+
+            mongoDumpProcess.on('close', (code) => {
+                if (code == 0) {
+                    resolve({
+                        error: 0,
+                        message: "Successfully Created Backup",
+                        backupName: DB_BACKUP_NAME
+                    });
+                } else {
                 // Most likely, mongodump isn't installed or isn't accessible
-                reject({
-                    error: 1,
-                    message: `mongodump exited with code ${code}`
-                });
-            }
+                    reject({
+                        error: 1,
+                        message: `mongodump closed with code ${code}`
+                    });
+                }
 
-        });
+            });
 
-        // exec(command, (err, stdout, stderr) => {
-        //     if (err) {
-        //         // Most likely, mongodump isn't installed or isn't accessible
-        //         reject({
-        //             error: 1,
-        //             message: err.message
-        //         });
-        //     } else {
-        //         resolve({
-        //             error: 0,
-        //             message: "Successfully Created Backup",
-        //             backupName: DB_BACKUP_NAME
-        //         });
-        //     }
-        // });
+        } catch (ex) {
+            reject(ex);
+        }
+
+
     });
 }
 
