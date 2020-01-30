@@ -91,6 +91,7 @@ MIT
 
 # Changelog
 
+    2.0.5 -> using double quote to protect args password and archive
     2.0.4 -> add --quiet configuration, use spawn instead of exec
     2.0.3 -> Optimize AWSSetup function and fix update is not a function error
     2.0.0 -> Uses MongoDB Connection URI directly, instead of asking for individual values of username, database name, password and database host.
